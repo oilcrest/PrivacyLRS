@@ -33,7 +33,7 @@
 #else
 #include <avr/pgmspace.h>
 #endif
-ChaCha cipher(12);
+ChaCha cipher(20);  // ChaCha20 - RFC 8439 standard (Finding #5)
 uint8_t encryptionCounter[8];
 encryptionState_e encryptionStateSend = ENCRYPTION_STATE_NONE;
 encryption_params_t nonce_key;
@@ -1594,6 +1594,67 @@ static void cyclePower()
   }
 }
 
+#ifdef RUN_CHACHA_BENCHMARK_TX
+// ChaCha12 Hardware Benchmark for TX - Finding #5
+// Using RUN_CHACHA_BENCHMARK_TX flag to avoid conflict with RX benchmark code
+void runChaCha20Benchmark()
+{
+    Serial.println("\n========================================");
+    Serial.println("ChaCha12 Hardware Benchmark - TX Module");
+    Serial.println("Testing ChaCha12 performance on ESP32");
+    Serial.println("========================================\n");
+
+    const uint8_t test_key[32] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
+    };
+    const uint8_t test_nonce[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
+    const uint8_t test_counter[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t plaintext[8] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+    uint8_t ciphertext[8];
+
+    Serial.println("Creating ChaCha12 object...");
+    ChaCha cipher12(12);
+
+    Serial.println("Initializing cipher...");
+    cipher12.setKey(test_key, 32);
+    cipher12.setIV(test_nonce, 8);
+    cipher12.setCounter(test_counter, 8);
+
+    Serial.println("Running 1000 encryption iterations...");
+    const uint32_t ITERATIONS = 1000;
+
+    uint32_t start = micros();
+    for (uint32_t i = 0; i < ITERATIONS; i++) {
+        cipher12.encrypt(ciphertext, plaintext, 8);
+        // Yield to watchdog every 100 iterations
+        if (i % 100 == 0) {
+            yield();
+        }
+    }
+    uint32_t elapsed = micros() - start;
+
+    float us_per_packet = (float)elapsed / (float)ITERATIONS;
+    float packets_per_sec = 1000000.0f / us_per_packet;
+
+    Serial.print("\nTotal time: ");
+    Serial.print(elapsed);
+    Serial.println(" us");
+    Serial.print("Per packet: ");
+    Serial.print(us_per_packet, 2);
+    Serial.println(" us");
+    Serial.print("Throughput: ");
+    Serial.print((uint32_t)packets_per_sec);
+    Serial.println(" packets/sec");
+
+    Serial.println("\n========================================");
+    Serial.println("ChaCha12 Benchmark Complete!");
+    Serial.println("========================================\n");
+}
+#endif // RUN_CHACHA_BENCHMARK_TX
+
 void setup()
 {
   if (setupHardwareFromOptions())
@@ -1688,6 +1749,30 @@ void setup()
 void loop()
 {
   uint32_t now = millis();
+
+  #ifdef RUN_CHACHA_BENCHMARK_TX
+  // Run benchmark once after system initialization
+  static bool benchmark_run = false;
+  static uint32_t first_loop_time = 0;
+
+  if (first_loop_time == 0) {
+    first_loop_time = now;
+  }
+
+  // Wait 5 seconds after boot before running benchmark
+  if (!benchmark_run && (now - first_loop_time) > 5000) {
+    Serial.println("Starting ChaCha12 benchmark...");
+    runChaCha20Benchmark();
+    benchmark_run = true;
+    Serial.println("Benchmark complete. Looping...");
+  }
+
+  // If benchmark has run, just loop slowly
+  if (benchmark_run) {
+    delay(1000);
+    return;
+  }
+  #endif
 
   HandleUARTout(); // Only used for non-CRSF output
 
