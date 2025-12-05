@@ -15,7 +15,18 @@ RC commands are also encrypted.
 ## FAQ
 ### How do the performance and features compare?  
   Performance and features of PrivacyLRS are identical for the same version number of ELRS, because PrivacyLRS is the exact same code as ELRS - just with the packets encrypted.
-  The encryption is much, much faster than the radio link, so there is no measurable delay.
+  The encryption is much, much faster than the radio link, so there is no effectively no delay.
+  To put that into hard numbers, at at 250 Hz, that's a minimum of 4 milliseconds between packets (without encryption)
+  ● Time between packets at 250 Hz:
+  - Frequency = 250 packets/second
+  - Time per packet = 1 / 250 = 4 milliseconds
+
+  ChaCha20 encryption Encryption time: 0.00352 milliseconds
+  - Percentage: (0.00352 / 4) × 100 = 0.088%
+
+  So you have 4 milliseconds between each packet, and ChaCha20 encryption only uses 0.00352 milliseconds of that time, which is 0.088% (less
+  than 1/10th of 1 percent).
+
 
 ### How do I use PrivacyLRS?  
   Download the [zip file](https://github.com/sensei-hacker/PrivacyLRS/archive/refs/heads/secure_01.zip) of the secure branch.
